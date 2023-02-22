@@ -20,7 +20,7 @@ use WordPressCS\WordPress\AbstractFunctionRestrictionsSniff;
  * @since   0.13.0 Class name changed: this class is now namespaced.
  * @since   0.14.0 `create_function` was moved to the PHP.RestrictedFunctions sniff.
  */
-final class DiscouragedPHPFunctionsSniff extends AbstractFunctionRestrictionsSniff {
+class DiscouragedPHPFunctionsSniff extends AbstractFunctionRestrictionsSniff {
 
 	/**
 	 * Groups of functions to discourage.
@@ -48,7 +48,7 @@ final class DiscouragedPHPFunctionsSniff extends AbstractFunctionRestrictionsSni
 
 			'urlencode' => array(
 				'type'      => 'warning',
-				'message'   => '%s() should only be used when dealing with legacy applications rawurlencode() should now be used instead. See https://www.php.net/function.rawurlencode and http://www.faqs.org/rfcs/rfc3986.html',
+				'message'   => '%s() should only be used when dealing with legacy applications rawurlencode() should now be used instead. See http://php.net/manual/en/function.rawurlencode.php and http://www.faqs.org/rfcs/rfc3986.html',
 				'functions' => array(
 					'urlencode',
 				),

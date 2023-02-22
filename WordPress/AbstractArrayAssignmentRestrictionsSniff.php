@@ -9,9 +9,6 @@
 
 namespace WordPressCS\WordPress;
 
-use PHPCSUtils\Utils\MessageHelper;
-use PHPCSUtils\Utils\TextStrings;
-use WordPressCS\WordPress\Helpers\RulesetPropertyHelper;
 use WordPressCS\WordPress\Sniff;
 
 /**
@@ -135,7 +132,7 @@ abstract class AbstractArrayAssignmentRestrictionsSniff extends Sniff {
 	 */
 	public function process_token( $stackPtr ) {
 
-		$this->excluded_groups = RulesetPropertyHelper::merge_custom_array( $this->exclude );
+		$this->excluded_groups = $this->merge_custom_array( $this->exclude );
 		if ( array_diff_key( $this->groups_cache, $this->excluded_groups ) === array() ) {
 			// All groups have been excluded.
 			// Don't remove the listener as the exclude property can be changed inline.
@@ -155,9 +152,9 @@ abstract class AbstractArrayAssignmentRestrictionsSniff extends Sniff {
 		$inst = array();
 
 		/*
-		 * Covers array assignments:
-		 * `$foo = array( 'bar' => 'taz' );`
-		 * `$foo['bar'] = $taz;`
+		 * Covers:
+		 * $foo = array( 'bar' => 'taz' );
+		 * $foo['bar'] = $taz;
 		 */
 		if ( \in_array( $token['code'], array( \T_CLOSE_SQUARE_BRACKET, \T_DOUBLE_ARROW ), true ) ) {
 			$operator = $stackPtr; // T_DOUBLE_ARROW.
@@ -167,16 +164,16 @@ abstract class AbstractArrayAssignmentRestrictionsSniff extends Sniff {
 
 			$keyIdx = $this->phpcsFile->findPrevious( array( \T_WHITESPACE, \T_CLOSE_SQUARE_BRACKET ), ( $operator - 1 ), null, true );
 			if ( ! is_numeric( $this->tokens[ $keyIdx ]['content'] ) ) {
-				$key            = TextStrings::stripQuotes( $this->tokens[ $keyIdx ]['content'] );
+				$key            = $this->strip_quotes( $this->tokens[ $keyIdx ]['content'] );
 				$valStart       = $this->phpcsFile->findNext( array( \T_WHITESPACE ), ( $operator + 1 ), null, true );
 				$valEnd         = $this->phpcsFile->findNext( array( \T_COMMA, \T_SEMICOLON ), ( $valStart + 1 ), null, false, null, true );
 				$val            = $this->phpcsFile->getTokensAsString( $valStart, ( $valEnd - $valStart ) );
-				$val            = TextStrings::stripQuotes( $val );
+				$val            = $this->strip_quotes( $val );
 				$inst[ $key ][] = array( $val, $token['line'] );
 			}
 		} elseif ( \in_array( $token['code'], array( \T_CONSTANT_ENCAPSED_STRING, \T_DOUBLE_QUOTED_STRING ), true ) ) {
-			// Covers assignments via query parameters: `$foo = 'bar=taz&other=thing';`.
-			if ( preg_match_all( '#(?:^|&)([a-z_]+)=([^&]*)#i', TextStrings::stripQuotes( $token['content'] ), $matches ) <= 0 ) {
+			// $foo = 'bar=taz&other=thing';
+			if ( preg_match_all( '#(?:^|&)([a-z_]+)=([^&]*)#i', $this->strip_quotes( $token['content'] ), $matches ) <= 0 ) {
 				return; // No assignments here, nothing to check.
 			}
 			foreach ( $matches[1] as $i => $_k ) {
@@ -214,12 +211,11 @@ abstract class AbstractArrayAssignmentRestrictionsSniff extends Sniff {
 						$message = $output;
 					}
 
-					MessageHelper::addMessage(
-						$this->phpcsFile,
+					$this->addMessage(
 						$message,
 						$stackPtr,
 						( 'error' === $group['type'] ),
-						MessageHelper::stringToErrorcode( $groupName . '_' . $key ),
+						$this->string_to_errorcode( $groupName . '_' . $key ),
 						array( $key, $val )
 					);
 				}

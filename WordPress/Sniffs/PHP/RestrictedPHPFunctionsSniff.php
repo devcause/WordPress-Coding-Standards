@@ -18,7 +18,7 @@ use WordPressCS\WordPress\AbstractFunctionRestrictionsSniff;
  *
  * @since   0.14.0
  */
-final class RestrictedPHPFunctionsSniff extends AbstractFunctionRestrictionsSniff {
+class RestrictedPHPFunctionsSniff extends AbstractFunctionRestrictionsSniff {
 
 	/**
 	 * Groups of functions to forbid.
@@ -37,7 +37,7 @@ final class RestrictedPHPFunctionsSniff extends AbstractFunctionRestrictionsSnif
 		return array(
 			'create_function' => array(
 				'type'      => 'error',
-				'message'   => '%s() is deprecated as of PHP 7.2 and removed in PHP 8.0. Please use declared named or anonymous functions instead.',
+				'message'   => '%s() is deprecated as of PHP 7.2, please use full fledged functions or anonymous functions instead.',
 				'functions' => array(
 					'create_function',
 				),

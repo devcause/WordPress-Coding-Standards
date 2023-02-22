@@ -9,11 +9,8 @@
 
 namespace WordPressCS\WordPress\Sniffs\DB;
 
-use PHP_CodeSniffer\Util\Tokens;
-use PHPCSUtils\Utils\PassedParameters;
-use PHPCSUtils\Utils\TextStrings;
-use WordPressCS\WordPress\Helpers\WPDBTrait;
 use WordPressCS\WordPress\Sniff;
+use PHP_CodeSniffer\Util\Tokens;
 
 /**
  * Check for incorrect use of the $wpdb->prepare method.
@@ -34,6 +31,10 @@ use WordPressCS\WordPress\Sniff;
  * created using code along the lines of:
  * `sprintf( 'query .... IN (%s) ...', implode( ',', array_fill( 0, count( $something ), '%s' ) ) )`.
  *
+ * A "PreparedSQLPlaceholders replacement count" whitelist comment is supported
+ * specifically to silence the `ReplacementsWrongNumber` and `UnfinishedPrepare`
+ * error codes. The other error codes are not affected by it.
+ *
  * @link https://developer.wordpress.org/reference/classes/wpdb/prepare/
  * @link https://core.trac.wordpress.org/changeset/41496
  * @link https://core.trac.wordpress.org/changeset/41471
@@ -42,12 +43,10 @@ use WordPressCS\WordPress\Sniff;
  *
  * @since   0.14.0
  */
-final class PreparedSQLPlaceholdersSniff extends Sniff {
-
-	use WPDBTrait;
+class PreparedSQLPlaceholdersSniff extends Sniff {
 
 	/**
-	 * These regexes were originally copied from https://www.php.net/function.sprintf#93552
+	 * These regexes copied from http://php.net/manual/en/function.sprintf.php#93552
 	 * and adjusted for limitations in `$wpdb->prepare()`.
 	 *
 	 * Near duplicate of the one used in the WP.I18n sniff, but with fewer types allowed.
@@ -171,11 +170,11 @@ final class PreparedSQLPlaceholdersSniff extends Sniff {
 	 */
 	public function process_token( $stackPtr ) {
 
-		if ( ! $this->is_wpdb_method_call( $this->phpcsFile, $stackPtr, $this->target_methods ) ) {
+		if ( ! $this->is_wpdb_method_call( $stackPtr, $this->target_methods ) ) {
 			return;
 		}
 
-		$parameters = PassedParameters::getParameters( $this->phpcsFile, $this->methodPtr );
+		$parameters = $this->get_function_call_parameters( $this->methodPtr );
 		if ( empty( $parameters ) ) {
 			return;
 		}
@@ -211,7 +210,7 @@ final class PreparedSQLPlaceholdersSniff extends Sniff {
 				if ( \T_STRING === $this->tokens[ $i ]['code'] ) {
 
 					if ( 'sprintf' === strtolower( $this->tokens[ $i ]['content'] ) ) {
-						$sprintf_parameters = PassedParameters::getParameters( $this->phpcsFile, $i );
+						$sprintf_parameters = $this->get_function_call_parameters( $i );
 
 						if ( ! empty( $sprintf_parameters ) ) {
 							$skip_from  = ( $sprintf_parameters[1]['end'] + 1 );
@@ -230,7 +229,7 @@ final class PreparedSQLPlaceholdersSniff extends Sniff {
 							$query['start']
 						);
 
-						$prev_content = TextStrings::stripQuotes( $this->tokens[ $prev ]['content'] );
+						$prev_content = $this->strip_quotes( $this->tokens[ $prev ]['content'] );
 						$regex_quote  = $this->get_regex_quote_snippet( $prev_content, $this->tokens[ $prev ]['content'] );
 
 						// Only examine the implode if preceded by an ` IN (`.
@@ -269,7 +268,7 @@ final class PreparedSQLPlaceholdersSniff extends Sniff {
 
 			$regex_quote = $this->regex_quote;
 			if ( isset( Tokens::$stringTokens[ $this->tokens[ $i ]['code'] ] ) ) {
-				$content     = TextStrings::stripQuotes( $content );
+				$content     = $this->strip_quotes( $content );
 				$regex_quote = $this->get_regex_quote_snippet( $content, $this->tokens[ $i ]['content'] );
 			}
 
@@ -277,22 +276,17 @@ final class PreparedSQLPlaceholdersSniff extends Sniff {
 				|| \T_HEREDOC === $this->tokens[ $i ]['code']
 			) {
 				// Only interested in actual query text, so strip out variables.
-				$stripped_content = TextStrings::stripEmbeds( $content );
+				$stripped_content = $this->strip_interpolated_variables( $content );
 				if ( $stripped_content !== $content ) {
-					$vars_without_wpdb = array_filter(
-						TextStrings::getEmbeds( $content ),
-						function ( $symbol ) {
-							return preg_match( '`^\{?\$\{?wpdb\??->`', $symbol ) !== 1;
-						}
-					);
-
-					$content = $stripped_content;
+					$interpolated_vars = $this->get_interpolated_variables( $content );
+					$vars_without_wpdb = array_diff( $interpolated_vars, array( 'wpdb' ) );
+					$content           = $stripped_content;
 
 					if ( ! empty( $vars_without_wpdb ) ) {
 						$variable_found = true;
 					}
 				}
-				unset( $stripped_content, $vars_without_wpdb );
+				unset( $stripped_content, $interpolated_vars, $vars_without_wpdb );
 			}
 
 			$placeholders = preg_match_all( '`' . self::PREPARE_PLACEHOLDER_REGEX . '`x', $content, $matches );
@@ -451,6 +445,11 @@ final class PreparedSQLPlaceholdersSniff extends Sniff {
 			return;
 		}
 
+		$count_diff_whitelisted = $this->has_whitelist_comment(
+			'PreparedSQLPlaceholders replacement count',
+			$stackPtr
+		);
+
 		if ( 0 === $total_placeholders ) {
 			if ( 1 === $total_parameters ) {
 				if ( false === $variable_found && false === $sql_wildcard_found ) {
@@ -466,7 +465,7 @@ final class PreparedSQLPlaceholdersSniff extends Sniff {
 						'UnnecessaryPrepare'
 					);
 				}
-			} elseif ( 0 === $valid_in_clauses['uses_in'] ) {
+			} elseif ( false === $count_diff_whitelisted && 0 === $valid_in_clauses['uses_in'] ) {
 				$this->phpcsFile->addWarning(
 					'Replacement variables found, but no valid placeholders found in the query.',
 					$i,
@@ -487,6 +486,10 @@ final class PreparedSQLPlaceholdersSniff extends Sniff {
 			return;
 		}
 
+		if ( true === $count_diff_whitelisted ) {
+			return;
+		}
+
 		$replacements = $parameters;
 		array_shift( $replacements ); // Remove the query.
 
@@ -503,7 +506,7 @@ final class PreparedSQLPlaceholdersSniff extends Sniff {
 				&& ( \T_ARRAY === $this->tokens[ $next ]['code']
 					|| \T_OPEN_SHORT_ARRAY === $this->tokens[ $next ]['code'] )
 			) {
-				$replacements = PassedParameters::getParameters( $this->phpcsFile, $next );
+				$replacements = $this->get_function_call_parameters( $next );
 			}
 		}
 
@@ -619,7 +622,7 @@ final class PreparedSQLPlaceholdersSniff extends Sniff {
 	 * @return bool True if the pattern is found, false otherwise.
 	 */
 	protected function analyse_implode( $implode_token ) {
-		$implode_params = PassedParameters::getParameters( $this->phpcsFile, $implode_token );
+		$implode_params = $this->get_function_call_parameters( $implode_token );
 
 		if ( empty( $implode_params ) || \count( $implode_params ) !== 2 ) {
 			return false;
@@ -646,7 +649,7 @@ final class PreparedSQLPlaceholdersSniff extends Sniff {
 			return false;
 		}
 
-		$array_fill_params = PassedParameters::getParameters( $this->phpcsFile, $array_fill );
+		$array_fill_params = $this->get_function_call_parameters( $array_fill );
 
 		if ( empty( $array_fill_params ) || \count( $array_fill_params ) !== 3 ) {
 			return false;

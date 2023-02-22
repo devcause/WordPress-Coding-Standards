@@ -9,9 +9,7 @@
 
 namespace WordPressCS\WordPress;
 
-use PHPCSUtils\Utils\Namespaces;
 use WordPressCS\WordPress\AbstractFunctionRestrictionsSniff;
-use WordPressCS\WordPress\Helpers\RulesetPropertyHelper;
 
 /**
  * Restricts usage of some classes.
@@ -94,7 +92,7 @@ abstract class AbstractClassRestrictionsSniff extends AbstractFunctionRestrictio
 		// Reset the temporary storage before processing the token.
 		unset( $this->classname );
 
-		$this->excluded_groups = RulesetPropertyHelper::merge_custom_array( $this->exclude );
+		$this->excluded_groups = $this->merge_custom_array( $this->exclude );
 		if ( array_diff_key( $this->groups, $this->excluded_groups ) === array() ) {
 			// All groups have been excluded.
 			// Don't remove the listener as the exclude property can be changed inline.
@@ -151,7 +149,7 @@ abstract class AbstractClassRestrictionsSniff extends AbstractFunctionRestrictio
 			return false;
 		}
 
-		// Nothing to do if one of the hierarchy keywords - 'parent', 'self' or 'static' - is used.
+		// Nothing to do if 'parent', 'self' or 'static'.
 		if ( \in_array( $classname, array( 'parent', 'self', 'static' ), true ) ) {
 			return false;
 		}
@@ -231,7 +229,7 @@ abstract class AbstractClassRestrictionsSniff extends AbstractFunctionRestrictio
 			// No namespace keyword found at all, so global namespace.
 			$classname = '\\' . $classname;
 		} else {
-			$namespace = Namespaces::determineNamespace( $this->phpcsFile, $search_from );
+			$namespace = $this->determine_namespace( $search_from );
 
 			if ( ! empty( $namespace ) ) {
 				$classname = '\\' . $namespace . '\\' . $classname;

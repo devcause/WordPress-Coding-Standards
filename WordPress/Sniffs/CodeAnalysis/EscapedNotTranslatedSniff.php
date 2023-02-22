@@ -11,7 +11,6 @@ namespace WordPressCS\WordPress\Sniffs\CodeAnalysis;
 
 use WordPressCS\WordPress\AbstractFunctionParameterSniff;
 use PHP_CodeSniffer\Util\Tokens;
-use PHPCSUtils\Utils\GetTokensAsString;
 
 /**
  * Flag calls to escaping functions which look like they may have been intended
@@ -22,7 +21,7 @@ use PHPCSUtils\Utils\GetTokensAsString;
  *
  * @since   2.2.0
  */
-final class EscapedNotTranslatedSniff extends AbstractFunctionParameterSniff {
+class EscapedNotTranslatedSniff extends AbstractFunctionParameterSniff {
 
 	/**
 	 * The group name for this group of functions.
@@ -43,7 +42,7 @@ final class EscapedNotTranslatedSniff extends AbstractFunctionParameterSniff {
 	 *
 	 * @since 2.2.0
 	 *
-	 * @var array<string, string> Key is the name of the function being matched, value the alternative to use.
+	 * @var array <string function_name> => <string alternative function>
 	 */
 	protected $target_functions = array(
 		'esc_html' => 'esc_html__',
@@ -77,11 +76,11 @@ final class EscapedNotTranslatedSniff extends AbstractFunctionParameterSniff {
 		$data = array(
 			$matched_content,
 			$this->target_functions[ $matched_content ],
-			GetTokensAsString::compact( $this->phpcsFile, $stackPtr, $closer, true ),
+			$this->phpcsFile->getTokensAsString( $stackPtr, ( $closer - $stackPtr + 1 ) ),
 		);
 
 		$this->phpcsFile->addWarning(
-			'%s() expects only a $text parameter. Did you mean to use %s() ? Found: %s',
+			'%s() expects only one parameter. Did you mean to use %s() ? Found: %s',
 			$stackPtr,
 			'Found',
 			$data

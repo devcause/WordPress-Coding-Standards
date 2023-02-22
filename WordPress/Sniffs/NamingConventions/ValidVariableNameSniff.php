@@ -9,31 +9,29 @@
 
 namespace WordPressCS\WordPress\Sniffs\NamingConventions;
 
-use PHP_CodeSniffer\Files\File;
 use PHP_CodeSniffer\Sniffs\AbstractVariableSniff as PHPCS_AbstractVariableSniff;
+use PHP_CodeSniffer\Files\File;
 use PHP_CodeSniffer\Util\Tokens;
-use PHPCSUtils\Tokens\Collections;
-use PHPCSUtils\Utils\Scopes;
-use PHPCSUtils\Utils\TextStrings;
-use PHPCSUtils\Utils\Variables;
-use WordPressCS\WordPress\Helpers\RulesetPropertyHelper;
-use WordPressCS\WordPress\Helpers\SnakeCaseHelper;
+use WordPressCS\WordPress\Sniff;
 
 /**
  * Checks the naming of variables and member variables.
  *
- * @link    https://developer.wordpress.org/coding-standards/wordpress-coding-standards/php/#naming-conventions
+ * @link    https://make.wordpress.org/core/handbook/best-practices/coding-standards/php/#naming-conventions
  *
  * @package WPCS\WordPressCodingStandards
  *
  * @since   0.9.0
  * @since   0.13.0 Class name changed: this class is now namespaced.
- * @since   2.0.0  Now offers name suggestions for variables in violation.
+ * @since   2.0.0  - Defers to the upstream `$phpReservedVars` property.
+ *                 - Now offers name suggestions for variables in violation.
  *
- * Last synced with base class January 2022 at commit 4b49a952bf0e2c3863d0a113256bae0d7fe63d52.
+ * Last synced with base class June 2018 at commit 78ddbae97cac078f09928bf89e3ab9e53ad2ace0.
  * @link    https://github.com/squizlabs/PHP_CodeSniffer/blob/master/src/Standards/Squiz/Sniffs/NamingConventions/ValidVariableNameSniff.php
+ *
+ * @uses PHP_CodeSniffer\Sniffs\AbstractVariableSniff::$phpReservedVars
  */
-final class ValidVariableNameSniff extends PHPCS_AbstractVariableSniff {
+class ValidVariableNameSniff extends PHPCS_AbstractVariableSniff {
 
 	/**
 	 * Mixed-case variables used by WordPress.
@@ -61,11 +59,10 @@ final class ValidVariableNameSniff extends PHPCS_AbstractVariableSniff {
 	 *
 	 * @since 0.9.0
 	 * @since 0.11.0 Changed from public to protected.
-	 * @since 3.0.0  Renamed from `$whitelisted_mixed_case_member_var_names` to `$allowed_mixed_case_member_var_names`.
 	 *
 	 * @var array
 	 */
-	protected $allowed_mixed_case_member_var_names = array(
+	protected $whitelisted_mixed_case_member_var_names = array(
 		'ID'                => true,
 		'comment_ID'        => true,
 		'comment_post_ID'   => true,
@@ -78,11 +75,10 @@ final class ValidVariableNameSniff extends PHPCS_AbstractVariableSniff {
 	 * Custom list of properties which can have mixed case.
 	 *
 	 * @since 0.11.0
-	 * @since 3.0.0  Renamed from `$customPropertiesWhitelist` to `$allowed_custom_properties`.
 	 *
 	 * @var string|string[]
 	 */
-	public $allowed_custom_properties = array();
+	public $customPropertiesWhitelist = array();
 
 	/**
 	 * Cache of previously added custom functions.
@@ -109,17 +105,17 @@ final class ValidVariableNameSniff extends PHPCS_AbstractVariableSniff {
 	 * @return void
 	 */
 	protected function processVariable( File $phpcs_file, $stack_ptr ) {
-		$tokens = $phpcs_file->getTokens();
+
+		$tokens   = $phpcs_file->getTokens();
+		$var_name = ltrim( $tokens[ $stack_ptr ]['content'], '$' );
 
 		// If it's a php reserved var, then its ok.
-		if ( Variables::isPHPReservedVarName( $tokens[ $stack_ptr ]['content'] ) ) {
+		if ( isset( $this->phpReservedVars[ $var_name ] ) ) {
 			return;
 		}
 
 		// Merge any custom variables with the defaults.
-		$this->merge_allow_lists();
-
-		$var_name = ltrim( $tokens[ $stack_ptr ]['content'], '$' );
+		$this->mergeWhiteList();
 
 		// Likewise if it is a mixed-case var used by WordPress core.
 		if ( isset( $this->wordpress_mixed_case_vars[ $var_name ] ) ) {
@@ -127,9 +123,7 @@ final class ValidVariableNameSniff extends PHPCS_AbstractVariableSniff {
 		}
 
 		$obj_operator = $phpcs_file->findNext( Tokens::$emptyTokens, ( $stack_ptr + 1 ), null, true );
-		if ( \T_OBJECT_OPERATOR === $tokens[ $obj_operator ]['code']
-			|| \T_NULLSAFE_OBJECT_OPERATOR === $tokens[ $obj_operator ]['code']
-		) {
+		if ( \T_OBJECT_OPERATOR === $tokens[ $obj_operator ]['code'] ) {
 			// Check to see if we are using a variable from an object.
 			$var = $phpcs_file->findNext( Tokens::$emptyTokens, ( $obj_operator + 1 ), null, true );
 			if ( \T_STRING === $tokens[ $var ]['code'] ) {
@@ -137,16 +131,19 @@ final class ValidVariableNameSniff extends PHPCS_AbstractVariableSniff {
 				if ( \T_OPEN_PARENTHESIS !== $tokens[ $bracket ]['code'] ) {
 					$obj_var_name = $tokens[ $var ]['content'];
 
-					if ( isset( $this->allowed_mixed_case_member_var_names[ $obj_var_name ] ) ) {
-						return;
+					// There is no way for us to know if the var is public or
+					// private, so we have to ignore a leading underscore if there is
+					// one and just check the main part of the variable name.
+					$original_var_name = $obj_var_name;
+					if ( '_' === substr( $obj_var_name, 0, 1 ) ) {
+						$obj_var_name = substr( $obj_var_name, 1 );
 					}
 
-					$suggested_name = SnakeCaseHelper::get_suggestion( $obj_var_name );
-					if ( $suggested_name !== $obj_var_name ) {
+					if ( ! isset( $this->whitelisted_mixed_case_member_var_names[ $obj_var_name ] ) && self::isSnakeCase( $obj_var_name ) === false ) {
 						$error = 'Object property "$%s" is not in valid snake_case format, try "$%s"';
 						$data  = array(
-							$obj_var_name,
-							$suggested_name,
+							$original_var_name,
+							Sniff::get_snake_case_name_suggestion( $original_var_name ),
 						);
 						$phpcs_file->addError( $error, $var, 'UsedPropertyNotSnakeCase', $data );
 					}
@@ -156,15 +153,22 @@ final class ValidVariableNameSniff extends PHPCS_AbstractVariableSniff {
 
 		$in_class     = false;
 		$obj_operator = $phpcs_file->findPrevious( Tokens::$emptyTokens, ( $stack_ptr - 1 ), null, true );
-		if ( isset( Collections::objectOperators()[ $tokens[ $obj_operator ]['code'] ] ) ) {
+		if ( \T_DOUBLE_COLON === $tokens[ $obj_operator ]['code'] || \T_OBJECT_OPERATOR === $tokens[ $obj_operator ]['code'] ) {
 			// The variable lives within a class, and is referenced like
 			// this: MyClass::$_variable or $class->variable.
 			$in_class = true;
 		}
 
-		$suggested_name = SnakeCaseHelper::get_suggestion( $var_name );
-		if ( $suggested_name !== $var_name ) {
-			if ( $in_class && ! isset( $this->allowed_mixed_case_member_var_names[ $var_name ] ) ) {
+		// There is no way for us to know if the var is public or private,
+		// so we have to ignore a leading underscore if there is one and just
+		// check the main part of the variable name.
+		$original_var_name = $var_name;
+		if ( '_' === substr( $var_name, 0, 1 ) && true === $in_class ) {
+			$var_name = substr( $var_name, 1 );
+		}
+
+		if ( self::isSnakeCase( $var_name ) === false ) {
+			if ( $in_class && ! isset( $this->whitelisted_mixed_case_member_var_names[ $var_name ] ) ) {
 				$error      = 'Object property "$%s" is not in valid snake_case format, try "$%s"';
 				$error_name = 'UsedPropertyNotSnakeCase';
 			} elseif ( ! $in_class ) {
@@ -174,8 +178,8 @@ final class ValidVariableNameSniff extends PHPCS_AbstractVariableSniff {
 
 			if ( isset( $error, $error_name ) ) {
 				$data = array(
-					$var_name,
-					$suggested_name,
+					$original_var_name,
+					Sniff::get_snake_case_name_suggestion( $original_var_name ),
 				);
 				$phpcs_file->addError( $error, $stack_ptr, $error_name, $data );
 			}
@@ -192,34 +196,34 @@ final class ValidVariableNameSniff extends PHPCS_AbstractVariableSniff {
 	 * @return void
 	 */
 	protected function processMemberVar( File $phpcs_file, $stack_ptr ) {
-		// Make sure this is actually an OO property and not an OO method parameter or illegal property declaration.
-		if ( Scopes::isOOProperty( $phpcs_file, $stack_ptr ) === false ) {
+
+		$tokens = $phpcs_file->getTokens();
+
+		$var_name     = ltrim( $tokens[ $stack_ptr ]['content'], '$' );
+		$member_props = $phpcs_file->getMemberProperties( $stack_ptr );
+		if ( empty( $member_props ) ) {
+			// Couldn't get any info about this variable, which
+			// generally means it is invalid or possibly has a parse
+			// error. Any errors will be reported by the core, so
+			// we can ignore it.
 			return;
 		}
 
 		// Merge any custom variables with the defaults.
-		$this->merge_allow_lists();
+		$this->mergeWhiteList();
 
-		$tokens   = $phpcs_file->getTokens();
-		$var_name = ltrim( $tokens[ $stack_ptr ]['content'], '$' );
-
-		if ( isset( $this->allowed_mixed_case_member_var_names[ $var_name ] ) ) {
-			return;
-		}
-
-		$suggested_name = SnakeCaseHelper::get_suggestion( $var_name );
-		if ( $suggested_name !== $var_name ) {
+		if ( ! isset( $this->whitelisted_mixed_case_member_var_names[ $var_name ] ) && false === self::isSnakeCase( $var_name ) ) {
 			$error = 'Member variable "$%s" is not in valid snake_case format, try "$%s"';
 			$data  = array(
 				$var_name,
-				$suggested_name,
+				Sniff::get_snake_case_name_suggestion( $var_name ),
 			);
 			$phpcs_file->addError( $error, $stack_ptr, 'PropertyNotSnakeCase', $data );
 		}
 	}
 
 	/**
-	 * Processes the variables found within a double quoted string.
+	 * Processes the variable found within a double quoted string.
 	 *
 	 * @param \PHP_CodeSniffer\Files\File $phpcs_file The file being scanned.
 	 * @param int                         $stack_ptr  The position of the double quoted
@@ -228,37 +232,30 @@ final class ValidVariableNameSniff extends PHPCS_AbstractVariableSniff {
 	 * @return void
 	 */
 	protected function processVariableInString( File $phpcs_file, $stack_ptr ) {
+
 		$tokens = $phpcs_file->getTokens();
 
-		// There will always be embeds if the processVariableInString() was called.
-		$embeds = TextStrings::getEmbeds( $tokens[ $stack_ptr ]['content'] );
+		if ( preg_match_all( '|[^\\\]\${?([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)|', $tokens[ $stack_ptr ]['content'], $matches ) > 0 ) {
 
-		// Merge any custom variables with the defaults.
-		$this->merge_allow_lists();
+			// Merge any custom variables with the defaults.
+			$this->mergeWhiteList();
 
-		foreach ( $embeds as $embed ) {
-			// Grab any variables contained in the embed.
-			if ( preg_match_all( '`\$(\{)?(?<name>[a-zA-Z_\x80-\xff][a-zA-Z0-9_\x80-\xff]*)(?(1)\})`', $embed, $matches ) === 0 ) {
-				continue;
-			}
-
-			foreach ( $matches['name'] as $var_name ) {
+			foreach ( $matches[1] as $var_name ) {
 				// If it's a php reserved var, then its ok.
-				if ( Variables::isPHPReservedVarName( $var_name ) ) {
+				if ( isset( $this->phpReservedVars[ $var_name ] ) ) {
 					continue;
 				}
 
 				// Likewise if it is a mixed-case var used by WordPress core.
 				if ( isset( $this->wordpress_mixed_case_vars[ $var_name ] ) ) {
-					continue;
+					return;
 				}
 
-				$suggested_name = SnakeCaseHelper::get_suggestion( $var_name );
-				if ( $suggested_name !== $var_name ) {
+				if ( false === self::isSnakeCase( $var_name ) ) {
 					$error = 'Variable "$%s" is not in valid snake_case format, try "$%s"';
 					$data  = array(
 						$var_name,
-						$suggested_name,
+						Sniff::get_snake_case_name_suggestion( $var_name ),
 					);
 					$phpcs_file->addError( $error, $stack_ptr, 'InterpolatedVariableNotSnakeCase', $data );
 				}
@@ -267,26 +264,36 @@ final class ValidVariableNameSniff extends PHPCS_AbstractVariableSniff {
 	}
 
 	/**
-	 * Merge a custom allow list provided via a custom ruleset with the predefined allow list,
+	 * Return whether the variable is in snake_case.
+	 *
+	 * @param string $var_name Variable name.
+	 * @return bool
+	 */
+	public static function isSnakeCase( $var_name ) {
+		return (bool) preg_match( '/^[a-z0-9_]+$/', $var_name );
+	}
+
+	/**
+	 * Merge a custom whitelist provided via a custom ruleset with the predefined whitelist,
 	 * if we haven't already.
 	 *
 	 * @since 0.10.0
 	 * @since 2.0.0  Removed unused $phpcs_file parameter.
-	 * @since 3.0.0  Renamed from `mergeWhiteList()` to `merge_allow_lists()`.
 	 *
 	 * @return void
 	 */
-	protected function merge_allow_lists() {
-		if ( $this->allowed_custom_properties !== $this->addedCustomProperties['properties'] ) {
+	protected function mergeWhiteList() {
+		if ( $this->customPropertiesWhitelist !== $this->addedCustomProperties['properties'] ) {
 			// Fix property potentially passed as comma-delimited string.
-			$customProperties = RulesetPropertyHelper::merge_custom_array( $this->allowed_custom_properties, array(), false );
+			$customProperties = Sniff::merge_custom_array( $this->customPropertiesWhitelist, array(), false );
 
-			$this->allowed_mixed_case_member_var_names = RulesetPropertyHelper::merge_custom_array(
+			$this->whitelisted_mixed_case_member_var_names = Sniff::merge_custom_array(
 				$customProperties,
-				$this->allowed_mixed_case_member_var_names
+				$this->whitelisted_mixed_case_member_var_names
 			);
 
-			$this->addedCustomProperties['properties'] = $this->allowed_custom_properties;
+			$this->addedCustomProperties['properties'] = $this->customPropertiesWhitelist;
 		}
 	}
+
 }

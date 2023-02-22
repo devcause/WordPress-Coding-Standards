@@ -9,17 +9,13 @@
 
 namespace WordPressCS\WordPress\Sniffs\Security;
 
-use PHP_CodeSniffer\Util\Tokens;
-use PHPCSUtils\Utils\PassedParameters;
-use PHPCSUtils\Utils\TextStrings;
-use WordPressCS\WordPress\Helpers\RulesetPropertyHelper;
-use WordPressCS\WordPress\Helpers\VariableHelper;
 use WordPressCS\WordPress\Sniff;
+use PHP_CodeSniffer\Util\Tokens;
 
 /**
  * Verifies that all outputted strings are escaped.
  *
- * @link    https://developer.wordpress.org/apis/security/data-validation/ WordPress Developer Docs on Data Validation.
+ * @link    http://codex.wordpress.org/Data_Validation Data Validation on WordPress Codex
  *
  * @package WPCS\WordPressCodingStandards
  *
@@ -198,12 +194,7 @@ class EscapeOutputSniff extends Sniff {
 
 			// These functions only need to have the first argument escaped.
 			if ( \in_array( $function, array( 'trigger_error', 'user_error' ), true ) ) {
-				$first_param = PassedParameters::getParameter( $this->phpcsFile, $stackPtr, 1 );
-				if ( false === $first_param ) {
-					// First parameter doesn't exist. Nothing to do.
-					return;
-				}
-
+				$first_param      = $this->get_function_call_parameter( $stackPtr, 1 );
 				$end_of_statement = ( $first_param['end'] + 1 );
 				unset( $first_param );
 			}
@@ -213,18 +204,19 @@ class EscapeOutputSniff extends Sniff {
 			 * pattern, it doesn't need to be escaped.
 			 */
 			if ( '_deprecated_file' === $function ) {
-				$first_param = PassedParameters::getParameter( $this->phpcsFile, $stackPtr, 1 );
-				if ( false === $first_param ) {
-					// First parameter doesn't exist. Nothing to do.
-					return;
-				}
+				$first_param = $this->get_function_call_parameter( $stackPtr, 1 );
 
 				// Quick check. This disregards comments.
-				if ( preg_match( '`^[\\\\]?basename\s*\(\s*__FILE__\s*\)$`', $first_param['raw'] ) === 1 ) {
+				if ( preg_match( '`^basename\s*\(\s*__FILE__\s*\)$`', $first_param['raw'] ) === 1 ) {
 					$stackPtr = ( $first_param['end'] + 2 );
 				}
 				unset( $first_param );
 			}
+		}
+
+		// Checking for the ignore comment, ex: //xss ok.
+		if ( $this->has_whitelist_comment( 'xss', $stackPtr ) ) {
+			return;
 		}
 
 		if ( isset( $this->unsafePrintingFunctions[ $function ] ) ) {
@@ -264,7 +256,7 @@ class EscapeOutputSniff extends Sniff {
 		}
 
 		// Ignore the function itself.
-		++$stackPtr;
+		$stackPtr++;
 
 		$in_cast = false;
 
@@ -316,7 +308,7 @@ class EscapeOutputSniff extends Sniff {
 
 			// Handle arrays for those functions that accept them.
 			if ( \T_ARRAY === $this->tokens[ $i ]['code'] ) {
-				++$i; // Skip the opening parenthesis.
+				$i++; // Skip the opening parenthesis.
 				continue;
 			}
 
@@ -393,8 +385,7 @@ class EscapeOutputSniff extends Sniff {
 					if ( isset( $this->arrayWalkingFunctions[ $functionName ] ) ) {
 
 						// Get the callback parameter.
-						$callback = PassedParameters::getParameter(
-							$this->phpcsFile,
+						$callback = $this->get_function_call_parameter(
 							$ptr,
 							$this->arrayWalkingFunctions[ $functionName ]
 						);
@@ -414,7 +405,7 @@ class EscapeOutputSniff extends Sniff {
 							if ( false !== $mapped_function
 								&& \T_CONSTANT_ENCAPSED_STRING === $this->tokens[ $mapped_function ]['code']
 							) {
-								$functionName = TextStrings::stripQuotes( $this->tokens[ $mapped_function ]['content'] );
+								$functionName = $this->strip_quotes( $this->tokens[ $mapped_function ]['content'] );
 								$ptr          = $mapped_function;
 							}
 						}
@@ -426,11 +417,13 @@ class EscapeOutputSniff extends Sniff {
 					if ( $is_formatting_function ) {
 						$i     = ( $function_opener + 1 );
 						$watch = true;
-					} elseif ( isset( $this->tokens[ $function_opener ]['parenthesis_closer'] ) ) {
-						$i = $this->tokens[ $function_opener ]['parenthesis_closer'];
 					} else {
-						// Live coding or parse error.
-						break;
+						if ( isset( $this->tokens[ $function_opener ]['parenthesis_closer'] ) ) {
+							$i = $this->tokens[ $function_opener ]['parenthesis_closer'];
+						} else {
+							// Live coding or parse error.
+							break;
+						}
 					}
 				}
 
@@ -452,7 +445,7 @@ class EscapeOutputSniff extends Sniff {
 
 			// Make the error message a little more informative for array access variables.
 			if ( \T_VARIABLE === $this->tokens[ $ptr ]['code'] ) {
-				$array_keys = VariableHelper::get_array_access_keys( $this->phpcsFile, $ptr );
+				$array_keys = $this->get_array_access_keys( $ptr );
 
 				if ( ! empty( $array_keys ) ) {
 					$content .= '[' . implode( '][', $array_keys ) . ']';
@@ -479,9 +472,9 @@ class EscapeOutputSniff extends Sniff {
 	 */
 	protected function mergeFunctionLists() {
 		if ( $this->customEscapingFunctions !== $this->addedCustomFunctions['escape'] ) {
-			$customEscapeFunctions = RulesetPropertyHelper::merge_custom_array( $this->customEscapingFunctions, array(), false );
+			$customEscapeFunctions = $this->merge_custom_array( $this->customEscapingFunctions, array(), false );
 
-			$this->escapingFunctions = RulesetPropertyHelper::merge_custom_array(
+			$this->escapingFunctions = $this->merge_custom_array(
 				$customEscapeFunctions,
 				$this->escapingFunctions
 			);
@@ -490,7 +483,7 @@ class EscapeOutputSniff extends Sniff {
 		}
 
 		if ( $this->customAutoEscapedFunctions !== $this->addedCustomFunctions['autoescape'] ) {
-			$this->autoEscapedFunctions = RulesetPropertyHelper::merge_custom_array(
+			$this->autoEscapedFunctions = $this->merge_custom_array(
 				$this->customAutoEscapedFunctions,
 				$this->autoEscapedFunctions
 			);
@@ -500,7 +493,7 @@ class EscapeOutputSniff extends Sniff {
 
 		if ( $this->customPrintingFunctions !== $this->addedCustomFunctions['print'] ) {
 
-			$this->printingFunctions = RulesetPropertyHelper::merge_custom_array(
+			$this->printingFunctions = $this->merge_custom_array(
 				$this->customPrintingFunctions,
 				$this->printingFunctions
 			);

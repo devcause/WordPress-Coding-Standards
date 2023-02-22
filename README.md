@@ -1,15 +1,15 @@
 <div aria-hidden="true">
 
 [![Latest Stable Version](https://poser.pugx.org/wp-coding-standards/wpcs/v/stable)](https://packagist.org/packages/wp-coding-standards/wpcs)
+[![Travis Build Status](https://travis-ci.com/WordPress/WordPress-Coding-Standards.svg?branch=master)](https://travis-ci.com/WordPress/WordPress-Coding-Standards)
 [![Release Date of the Latest Version](https://img.shields.io/github/release-date/WordPress/WordPress-Coding-Standards.svg?maxAge=1800)](https://github.com/WordPress/WordPress-Coding-Standards/releases)
 :construction:
 [![Latest Unstable Version](https://img.shields.io/badge/unstable-dev--develop-e68718.svg?maxAge=2419200)](https://packagist.org/packages/wp-coding-standards/wpcs#dev-develop)
+[![Travis Build Status](https://travis-ci.com/WordPress/WordPress-Coding-Standards.svg?branch=develop)](https://travis-ci.com/WordPress/WordPress-Coding-Standards)
 [![Last Commit to Unstable](https://img.shields.io/github/last-commit/WordPress/WordPress-Coding-Standards/develop.svg)](https://github.com/WordPress/WordPress-Coding-Standards/commits/develop)
 
 [![Minimum PHP Version](https://img.shields.io/packagist/php-v/wp-coding-standards/wpcs.svg?maxAge=3600)](https://packagist.org/packages/wp-coding-standards/wpcs)
-[![Tested on PHP 5.4 to 7.4 snapshot](https://img.shields.io/badge/tested%20on-PHP%205.4%20|%205.5%20|%205.6%20|%207.0%20|%207.1%20|%207.2%20|%207.3%20|%207.4snapshot-green.svg?maxAge=2419200)](https://github.com/WordPress/WordPress-Coding-Standards/actions/workflows/unit-tests.yml)
-[![Basic QA checks](https://github.com/WordPress/WordPress-Coding-Standards/actions/workflows/basic-qa.yml/badge.svg)](https://github.com/WordPress/WordPress-Coding-Standards/actions/workflows/basic-qa.yml)
-[![Unit Tests](https://github.com/WordPress/WordPress-Coding-Standards/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/WordPress/WordPress-Coding-Standards/actions/workflows/unit-tests.yml)
+[![Tested on PHP 5.4 to 7.4 snapshot](https://img.shields.io/badge/tested%20on-PHP%205.4%20|%205.5%20|%205.6%20|%207.0%20|%207.1%20|%207.2%20|%207.3%20|%207.4snapshot-green.svg?maxAge=2419200)](https://travis-ci.com/WordPress/WordPress-Coding-Standards)
 
 [![License: MIT](https://poser.pugx.org/wp-coding-standards/wpcs/license)](https://github.com/WordPress/WordPress-Coding-Standards/blob/develop/LICENSE)
 [![Total Downloads](https://poser.pugx.org/wp-coding-standards/wpcs/downloads)](https://packagist.org/packages/wp-coding-standards/wpcs/stats)
@@ -35,7 +35,8 @@
     + [Command line](#command-line)
     + [Using PHPCS and WPCS from within your IDE](#using-phpcs-and-wpcs-from-within-your-ide)
 * [Running your code through WPCS automatically using CI tools](#running-your-code-through-wpcs-automatically-using-ci-tools)
-* [Fixing errors or ignoring them](#fixing-errors-or-ignoring-them)
+    + [Travis CI](#travis-ci)
+* [Fixing errors or whitelisting them](#fixing-errors-or-whitelisting-them)
     + [Tools shipped with WPCS](#tools-shipped-with-wpcs)
 * [Contributing](#contributing)
 * [License](#license)
@@ -58,7 +59,7 @@ This project is a collection of [PHP_CodeSniffer](https://github.com/squizlabs/P
 
 ### Requirements
 
-The WordPress Coding Standards require PHP 5.4 or higher and [PHP_CodeSniffer](https://github.com/squizlabs/PHP_CodeSniffer) version **3.7.1** or higher.
+The WordPress Coding Standards require PHP 5.4 or higher and [PHP_CodeSniffer](https://github.com/squizlabs/PHP_CodeSniffer) version **3.3.1** or higher.
 
 ### Composer
 
@@ -127,13 +128,13 @@ The project encompasses a super-set of the sniffs that the WordPress community m
 You can use the following as standard names when invoking `phpcs` to select sniffs, fitting your needs:
 
 * `WordPress` - complete set with all of the sniffs in the project
-  - `WordPress-Core` - main ruleset for [WordPress core coding standards](https://developer.wordpress.org/coding-standards/wordpress-coding-standards/php/)
-  - `WordPress-Docs` - additional ruleset for [WordPress inline documentation standards](https://developer.wordpress.org/coding-standards/inline-documentation-standards/php/)
+  - `WordPress-Core` - main ruleset for [WordPress core coding standards](https://make.wordpress.org/core/handbook/best-practices/coding-standards/)
+  - `WordPress-Docs` - additional ruleset for [WordPress inline documentation standards](https://make.wordpress.org/core/handbook/best-practices/inline-documentation-standards/)
   - `WordPress-Extra` - extended ruleset for recommended best practices, not sufficiently covered in the WordPress core coding standards
     - includes `WordPress-Core`
 
 **Note:** The WPCS package used to include a `WordPress-VIP` ruleset and associated sniffs, prior to WPCS 2.0.0.
-The `WordPress-VIP` ruleset was originally intended to aid with the [WordPress.com VIP coding requirements](https://docs.wpvip.com/technical-references/code-review/), but has been superseded. It is recommended to use the [official VIP coding standards](https://github.com/Automattic/VIP-Coding-Standards) ruleset instead for checking code against the VIP platform requirements.
+The `WordPress-VIP` ruleset was originally intended to aid with the [WordPress.com VIP coding requirements](https://vip.wordpress.com/documentation/vip-go/code-review-blockers-warnings-notices/), but has been superseded. It is recommended to use the [official VIP coding standards](https://github.com/Automattic/VIP-Coding-Standards) ruleset instead for checking code against the VIP platform requirements.
 
 ### Using a custom ruleset
 
@@ -154,13 +155,13 @@ The [PHPCompatibilityWP](https://github.com/PHPCompatibility/PHPCompatibilityWP)
 
 Install either as a separate ruleset and run it separately against your code or add it to your custom ruleset, like so:
 ```xml
-<config name="testVersion" value="5.6-"/>
+<config name="testVersion" value="5.2-"/>
 <rule ref="PHPCompatibilityWP">
     <include-pattern>*\.php$</include-pattern>
 </rule>
 ```
 
-Whichever way you run it, do make sure you set the `testVersion` to run the sniffs against. The `testVersion` determines for which PHP versions you will receive compatibility information. The recommended setting for this at this moment is  `5.6-` to support the same PHP versions as WordPress Core supports.
+Whichever way you run it, do make sure you set the `testVersion` to run the sniffs against. The `testVersion` determines for which PHP versions you will receive compatibility information. The recommended setting for this at this moment is  `5.2-` to support the same PHP versions as WordPress Core supports.
 
 For more information about setting the `testVersion`, see:
 * [PHPCompatibility: Sniffing your code for compatibility with specific PHP version(s)](https://github.com/PHPCompatibility/PHPCompatibility#sniffing-your-code-for-compatibility-with-specific-php-versions)
@@ -224,10 +225,49 @@ Will result in following output:
 
 ## Running your code through WPCS automatically using CI tools
 
-- [Running in GitHub Actions](https://github.com/WordPress/WordPress-Coding-Standards/wiki/Running-in-GitHub-Actions)
-- [Running in Travis](https://github.com/WordPress/WordPress-Coding-Standards/wiki/Running-in-Travis)
+### [Travis CI](https://travis-ci.com/)
 
-## Fixing errors or ignoring them
+To integrate PHPCS with WPCS with Travis CI, you'll need to install both `before_install` and add the run command to the `script`.
+If your project uses Composer, the typical instructions might be different.
+
+If you use a matrix setup in Travis to test your code against different PHP and/or WordPress versions, you don't need to run PHPCS on each variant of the matrix as the results will be same.
+You can set an environment variable in the Travis matrix to only run the sniffs against one setup in the matrix.
+
+#### Travis CI example
+```yaml
+language: php
+
+matrix:
+  include:
+    # Arbitrary PHP version to run the sniffs against.
+    - php: '7.0'
+      env: SNIFF=1
+
+before_install:
+  - if [[ "$SNIFF" == "1" ]]; then export PHPCS_DIR=/tmp/phpcs; fi
+  - if [[ "$SNIFF" == "1" ]]; then export SNIFFS_DIR=/tmp/sniffs; fi
+  # Install PHP_CodeSniffer.
+  - if [[ "$SNIFF" == "1" ]]; then git clone -b master --depth 1 https://github.com/squizlabs/PHP_CodeSniffer.git $PHPCS_DIR; fi
+  # Install WordPress Coding Standards.
+  - if [[ "$SNIFF" == "1" ]]; then git clone -b master --depth 1 https://github.com/WordPress/WordPress-Coding-Standards.git $SNIFFS_DIR; fi
+  # Set install path for WordPress Coding Standards.
+  - if [[ "$SNIFF" == "1" ]]; then $PHPCS_DIR/bin/phpcs --config-set installed_paths $SNIFFS_DIR; fi
+  # After CodeSniffer install you should refresh your path.
+  - if [[ "$SNIFF" == "1" ]]; then phpenv rehash; fi
+
+script:
+  # Run against WordPress Coding Standards.
+  # If you use a custom ruleset, change `--standard=WordPress` to point to your ruleset file,
+  # for example: `--standard=wpcs.xml`.
+  # You can use any of the normal PHPCS command line arguments in the command:
+  # https://github.com/squizlabs/PHP_CodeSniffer/wiki/Usage
+  - if [[ "$SNIFF" == "1" ]]; then $PHPCS_DIR/bin/phpcs -p . --standard=WordPress; fi
+```
+
+More examples and advice about integrating PHPCS in your Travis build tests can be found here: https://github.com/jrfnl/make-phpcs-work-for-you/tree/master/travis-examples
+
+
+## Fixing errors or whitelisting them
 
 You can find information on how to deal with some of the more frequent issues in the [wiki](https://github.com/WordPress/WordPress-Coding-Standards/wiki).
 

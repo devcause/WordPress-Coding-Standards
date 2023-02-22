@@ -9,11 +9,8 @@
 
 namespace WordPressCS\WordPress\Sniffs\Security;
 
-use PHP_CodeSniffer\Util\Tokens;
-use PHPCSUtils\Utils\TextStrings;
-use WordPressCS\WordPress\Helpers\RulesetPropertyHelper;
-use WordPressCS\WordPress\Helpers\VariableHelper;
 use WordPressCS\WordPress\Sniff;
+use PHP_CodeSniffer\Util\Tokens;
 
 /**
  * Flag any non-validated/sanitized input ( _GET / _POST / etc. ).
@@ -99,14 +96,12 @@ class ValidatedSanitizedInputSniff extends Sniff {
 		if ( \T_DOUBLE_QUOTED_STRING === $this->tokens[ $stackPtr ]['code']
 			|| \T_HEREDOC === $this->tokens[ $stackPtr ]['code']
 		) {
-			// Retrieve all embeds, but use only the initial variable name part.
 			$interpolated_variables = array_map(
-				function( $embed ) {
-					return '$' . preg_replace( '`^(\{?\$\{?\(?)([a-zA-Z_\x80-\xff][a-zA-Z0-9_\x80-\xff]*)(.*)$`', '$2', $embed );
+				function ( $symbol ) {
+					return '$' . $symbol;
 				},
-				TextStrings::getEmbeds( $this->tokens[ $stackPtr ]['content'] )
+				$this->get_interpolated_variables( $this->tokens[ $stackPtr ]['content'] )
 			);
-
 			foreach ( array_intersect( $interpolated_variables, $superglobals ) as $bad_variable ) {
 				$this->phpcsFile->addError( 'Detected usage of a non-sanitized, non-validated input variable %s: %s', $stackPtr, 'InputNotValidatedNotSanitized', array( $bad_variable, $this->tokens[ $stackPtr ]['content'] ) );
 			}
@@ -120,7 +115,7 @@ class ValidatedSanitizedInputSniff extends Sniff {
 		}
 
 		// If we're overriding a superglobal with an assignment, no need to test.
-		if ( VariableHelper::is_assignment( $this->phpcsFile, $stackPtr ) ) {
+		if ( $this->is_assignment( $stackPtr ) ) {
 			return;
 		}
 
@@ -129,7 +124,7 @@ class ValidatedSanitizedInputSniff extends Sniff {
 			return;
 		}
 
-		$array_keys = VariableHelper::get_array_access_keys( $this->phpcsFile, $stackPtr );
+		$array_keys = $this->get_array_access_keys( $stackPtr );
 
 		if ( empty( $array_keys ) ) {
 			return;
@@ -176,13 +171,17 @@ class ValidatedSanitizedInputSniff extends Sniff {
 			);
 		}
 
+		if ( $this->has_whitelist_comment( 'sanitization', $stackPtr ) ) {
+			return;
+		}
+
 		// If this variable is being tested with one of the `is_..()` functions, sanitization isn't needed.
 		if ( $this->is_in_type_test( $stackPtr ) ) {
 			return;
 		}
 
 		// If this is a comparison ('a' == $_POST['foo']), sanitization isn't needed.
-		if ( VariableHelper::is_comparison( $this->phpcsFile, $stackPtr, false ) ) {
+		if ( $this->is_comparison( $stackPtr, false ) ) {
 			return;
 		}
 
@@ -213,7 +212,7 @@ class ValidatedSanitizedInputSniff extends Sniff {
 	 */
 	protected function mergeFunctionLists() {
 		if ( $this->customSanitizingFunctions !== $this->addedCustomFunctions['sanitize'] ) {
-			$this->sanitizingFunctions = RulesetPropertyHelper::merge_custom_array(
+			$this->sanitizingFunctions = $this->merge_custom_array(
 				$this->customSanitizingFunctions,
 				$this->sanitizingFunctions
 			);
@@ -222,7 +221,7 @@ class ValidatedSanitizedInputSniff extends Sniff {
 		}
 
 		if ( $this->customUnslashingSanitizingFunctions !== $this->addedCustomFunctions['unslashsanitize'] ) {
-			$this->unslashingSanitizingFunctions = RulesetPropertyHelper::merge_custom_array(
+			$this->unslashingSanitizingFunctions = $this->merge_custom_array(
 				$this->customUnslashingSanitizingFunctions,
 				$this->unslashingSanitizingFunctions
 			);

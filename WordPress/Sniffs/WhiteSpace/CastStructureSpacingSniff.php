@@ -15,7 +15,7 @@ use PHP_CodeSniffer\Util\Tokens;
 /**
  * Ensure cast statements are preceded by whitespace.
  *
- * @link    https://developer.wordpress.org/coding-standards/wordpress-coding-standards/php/#space-usage
+ * @link    https://make.wordpress.org/core/handbook/best-practices/coding-standards/php/#space-usage
  *
  * @package WPCS\WordPressCodingStandards
  *
@@ -28,7 +28,7 @@ use PHP_CodeSniffer\Util\Tokens;
  *                 upstream `Generic.Formatting.SpaceAfterCast.NoSpace` error.
  * @since   2.2.0  Added exception for whitespace between spread operator and cast.
  */
-final class CastStructureSpacingSniff extends Sniff {
+class CastStructureSpacingSniff extends Sniff {
 
 	/**
 	 * Returns an array of tokens this test wants to listen for.
@@ -51,7 +51,7 @@ final class CastStructureSpacingSniff extends Sniff {
 		if ( \T_WHITESPACE !== $this->tokens[ ( $stackPtr - 1 ) ]['code']
 			&& \T_ELLIPSIS !== $this->tokens[ ( $stackPtr - 1 ) ]['code']
 		) {
-			$error = 'Expected a space before the type cast open parenthesis; none found';
+			$error = 'No space before opening casting parenthesis is prohibited';
 			$fix   = $this->phpcsFile->addFixableError( $error, $stackPtr, 'NoSpaceBeforeOpenParenthesis' );
 			if ( true === $fix ) {
 				$this->phpcsFile->fixer->addContentBefore( $stackPtr, ' ' );

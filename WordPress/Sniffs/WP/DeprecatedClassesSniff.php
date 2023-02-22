@@ -9,9 +9,7 @@
 
 namespace WordPressCS\WordPress\Sniffs\WP;
 
-use PHPCSUtils\Utils\MessageHelper;
 use WordPressCS\WordPress\AbstractClassRestrictionsSniff;
-use WordPressCS\WordPress\Helpers\MinimumWPVersionTrait;
 
 /**
  * Restricts the use of deprecated WordPress classes and suggests alternatives.
@@ -30,11 +28,9 @@ use WordPressCS\WordPress\Helpers\MinimumWPVersionTrait;
  *                 being provided via the command-line or as as <config> value
  *                 in a custom ruleset.
  *
- * @uses    \WordPressCS\WordPress\Helpers\MinimumWPVersionTrait::$minimum_wp_version
+ * @uses    \WordPressCS\WordPress\Sniff::$minimum_supported_version
  */
-final class DeprecatedClassesSniff extends AbstractClassRestrictionsSniff {
-
-	use MinimumWPVersionTrait;
+class DeprecatedClassesSniff extends AbstractClassRestrictionsSniff {
 
 	/**
 	 * List of deprecated classes with alternative when available.
@@ -76,7 +72,7 @@ final class DeprecatedClassesSniff extends AbstractClassRestrictionsSniff {
 	 */
 	public function getGroups() {
 		// Make sure all array keys are lowercase.
-		$this->deprecated_classes = array_change_key_case( $this->deprecated_classes, \CASE_LOWER );
+		$this->deprecated_classes = array_change_key_case( $this->deprecated_classes, CASE_LOWER );
 
 		return array(
 			'deprecated_classes' => array(
@@ -97,7 +93,7 @@ final class DeprecatedClassesSniff extends AbstractClassRestrictionsSniff {
 	 */
 	public function process_matched_token( $stackPtr, $group_name, $matched_content ) {
 
-		$this->set_minimum_wp_version();
+		$this->get_wp_version_from_cl();
 
 		$class_name = ltrim( strtolower( $matched_content ), '\\' );
 
@@ -112,12 +108,11 @@ final class DeprecatedClassesSniff extends AbstractClassRestrictionsSniff {
 			$data[]   = $this->deprecated_classes[ $class_name ]['alt'];
 		}
 
-		MessageHelper::addMessage(
-			$this->phpcsFile,
+		$this->addMessage(
 			$message,
 			$stackPtr,
-			( $this->wp_version_compare( $this->deprecated_classes[ $class_name ]['version'], $this->minimum_wp_version, '<' ) ),
-			MessageHelper::stringToErrorcode( $class_name . 'Found' ),
+			( version_compare( $this->deprecated_classes[ $class_name ]['version'], $this->minimum_supported_version, '<' ) ),
+			$this->string_to_errorcode( $class_name . 'Found' ),
 			$data
 		);
 	}

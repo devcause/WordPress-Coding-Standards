@@ -15,8 +15,8 @@ use WordPressCS\WordPress\AbstractFunctionRestrictionsSniff;
  * Perl compatible regular expressions (PCRE, preg_ functions) should be used in preference
  * to their POSIX counterparts.
  *
- * @link    https://developer.wordpress.org/coding-standards/wordpress-coding-standards/php/#regular-expressions
- * @link    https://php-legacy-docs.zend.com/manual/php5/en/ref.regex
+ * @link    https://make.wordpress.org/core/handbook/best-practices/coding-standards/php/#regular-expressions
+ * @link    http://php.net/manual/en/ref.regex.php
  *
  * @package WPCS\WordPressCodingStandards
  *
@@ -25,7 +25,7 @@ use WordPressCS\WordPress\AbstractFunctionRestrictionsSniff;
  *                 `WordPress.PHP.DiscouragedPHPFunctions` sniffs.
  * @since   0.13.0 Class name changed: this class is now namespaced.
  */
-final class POSIXFunctionsSniff extends AbstractFunctionRestrictionsSniff {
+class POSIXFunctionsSniff extends AbstractFunctionRestrictionsSniff {
 
 	/**
 	 * Groups of functions to restrict.

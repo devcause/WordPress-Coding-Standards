@@ -11,8 +11,6 @@ namespace WordPressCS\WordPress\Sniffs\Arrays;
 
 use WordPressCS\WordPress\Sniff;
 use PHP_CodeSniffer\Util\Tokens;
-use PHPCSUtils\Utils\Arrays;
-use PHPCSUtils\Utils\PassedParameters;
 
 /**
  * Enforces WordPress array spacing format.
@@ -24,7 +22,7 @@ use PHPCSUtils\Utils\PassedParameters;
  * - Checks that each array item in a multi-line array starts on a new line.
  * - Checks that the array closer in a multi-line array is on a new line.
  *
- * @link    https://developer.wordpress.org/coding-standards/wordpress-coding-standards/php/#indentation
+ * @link    https://make.wordpress.org/core/handbook/best-practices/coding-standards/php/#indentation
  *
  * @package WPCS\WordPressCodingStandards
  *
@@ -41,7 +39,7 @@ use PHPCSUtils\Utils\PassedParameters;
  *                 "must be multi-line" rule. This behaviour can be changed using the
  *                 `allow_single_item_single_line_associative_arrays` property.
  */
-final class ArrayDeclarationSpacingSniff extends Sniff {
+class ArrayDeclarationSpacingSniff extends Sniff {
 
 	/**
 	 * Whether or not to allow single item associative arrays to be single line.
@@ -91,7 +89,7 @@ final class ArrayDeclarationSpacingSniff extends Sniff {
 	public function process_token( $stackPtr ) {
 
 		if ( \T_OPEN_SHORT_ARRAY === $this->tokens[ $stackPtr ]['code']
-			&& Arrays::isShortArray( $this->phpcsFile, $stackPtr ) === false
+			&& $this->is_short_list( $stackPtr )
 		) {
 			// Short list, not short array.
 			return;
@@ -100,7 +98,7 @@ final class ArrayDeclarationSpacingSniff extends Sniff {
 		/*
 		 * Determine the array opener & closer.
 		 */
-		$array_open_close = Arrays::getOpenClose( $this->phpcsFile, $stackPtr );
+		$array_open_close = $this->find_array_open_close( $stackPtr );
 		if ( false === $array_open_close ) {
 			// Array open/close could not be determined.
 			return;
@@ -195,7 +193,7 @@ final class ArrayDeclarationSpacingSniff extends Sniff {
 		$array_has_keys = $this->phpcsFile->findNext( \T_DOUBLE_ARROW, $opener, $closer );
 		if ( false !== $array_has_keys ) {
 
-			$array_items = PassedParameters::getParameters( $this->phpcsFile, $stackPtr );
+			$array_items = $this->get_function_call_parameters( $stackPtr );
 
 			if ( ( false === $this->allow_single_item_single_line_associative_arrays
 					&& ! empty( $array_items ) )
@@ -215,7 +213,7 @@ final class ArrayDeclarationSpacingSniff extends Sniff {
 
 						// Skip passed any nested arrays.
 						if ( isset( $this->targets[ $this->tokens[ $ptr ]['code'] ] ) ) {
-							$nested_array_open_close = Arrays::getOpenClose( $this->phpcsFile, $ptr );
+							$nested_array_open_close = $this->find_array_open_close( $ptr );
 							if ( false === $nested_array_open_close ) {
 								// Nested array open/close could not be determined.
 								continue;
@@ -377,7 +375,7 @@ final class ArrayDeclarationSpacingSniff extends Sniff {
 		/*
 		 * Check that each array item starts on a new line.
 		 */
-		$array_items      = PassedParameters::getParameters( $this->phpcsFile, $stackPtr );
+		$array_items      = $this->get_function_call_parameters( $stackPtr );
 		$end_of_last_item = $opener;
 
 		foreach ( $array_items as $item ) {
@@ -405,7 +403,7 @@ final class ArrayDeclarationSpacingSniff extends Sniff {
 						&& substr( rtrim( $this->tokens[ $end_of_comment ]['content'] ), -2 ) !== '*/'
 						&& ( $end_of_comment + 1 ) < $end_of_this_item
 					) {
-						++$end_of_comment;
+						$end_of_comment++;
 					}
 
 					if ( $this->tokens[ $end_of_comment ]['line'] !== $this->tokens[ $end_of_last_item ]['line'] ) {

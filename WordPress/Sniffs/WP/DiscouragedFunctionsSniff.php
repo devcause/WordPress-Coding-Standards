@@ -19,7 +19,7 @@ use WordPressCS\WordPress\AbstractFunctionRestrictionsSniff;
  * @since   0.11.0
  * @since   0.13.0 Class name changed: this class is now namespaced.
  */
-final class DiscouragedFunctionsSniff extends AbstractFunctionRestrictionsSniff {
+class DiscouragedFunctionsSniff extends AbstractFunctionRestrictionsSniff {
 
 	/**
 	 * Groups of functions to restrict.

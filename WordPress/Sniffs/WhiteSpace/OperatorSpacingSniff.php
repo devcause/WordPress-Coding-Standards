@@ -13,12 +13,11 @@ use PHP_CodeSniffer\Standards\Squiz\Sniffs\WhiteSpace\OperatorSpacingSniff as PH
 use PHP_CodeSniffer\Util\Tokens;
 
 /**
- * Verify operator spacing, uses the Squiz sniff, but additionally also sniffs for the
- * `!` (boolean not) and the boolean and logical and/or operators.
+ * Verify operator spacing, uses the Squiz sniff, but additionally also sniffs for the `!` (boolean not) operator.
  *
  * "Always put spaces after commas, and on both sides of logical, comparison, string and assignment operators."
  *
- * @link    https://developer.wordpress.org/coding-standards/wordpress-coding-standards/php/#space-usage
+ * @link    https://make.wordpress.org/core/handbook/best-practices/coding-standards/php/#space-usage
  *
  * @package WPCS\WordPressCodingStandards
  *
@@ -32,10 +31,10 @@ use PHP_CodeSniffer\Util\Tokens;
  *                 $ignoreNewlines property.
  * @since   0.13.0 Class name changed: this class is now namespaced.
  *
- * Last verified with base class July 2020 at commit a957a73e3533353451eb9fd62ee58bd0aba2773c.
+ * Last synced with base class June 2017 at commit 41127aa4764536f38f504fb3f7b8831f05919c89.
  * @link    https://github.com/squizlabs/PHP_CodeSniffer/blob/master/CodeSniffer/Standards/Squiz/Sniffs/WhiteSpace/OperatorSpacingSniff.php
  */
-final class OperatorSpacingSniff extends PHPCS_Squiz_OperatorSpacingSniff {
+class OperatorSpacingSniff extends PHPCS_Squiz_OperatorSpacingSniff {
 
 	/**
 	 * Allow newlines instead of spaces.
@@ -55,9 +54,11 @@ final class OperatorSpacingSniff extends PHPCS_Squiz_OperatorSpacingSniff {
 	public function register() {
 		$tokens                   = parent::register();
 		$tokens[ \T_BOOLEAN_NOT ] = \T_BOOLEAN_NOT;
-		$tokens                  += Tokens::$booleanOperators;
+		$tokens[ \T_INSTANCEOF ]  = \T_INSTANCEOF;
+		$logical_operators        = Tokens::$booleanOperators;
 
-		return $tokens;
+		// Using array union to auto-dedup.
+		return $tokens + $logical_operators;
 	}
 
 }

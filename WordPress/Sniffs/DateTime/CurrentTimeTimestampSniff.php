@@ -9,10 +9,8 @@
 
 namespace WordPressCS\WordPress\Sniffs\DateTime;
 
-use PHP_CodeSniffer\Util\Tokens;
-use PHPCSUtils\Utils\PassedParameters;
-use PHPCSUtils\Utils\TextStrings;
 use WordPressCS\WordPress\AbstractFunctionParameterSniff;
+use PHP_CodeSniffer\Util\Tokens;
 
 /**
  * Don't use current_time() to get a (timezone corrected) "timestamp".
@@ -30,7 +28,7 @@ use WordPressCS\WordPress\AbstractFunctionParameterSniff;
  *
  * @since   2.2.0
  */
-final class CurrentTimeTimestampSniff extends AbstractFunctionParameterSniff {
+class CurrentTimeTimestampSniff extends AbstractFunctionParameterSniff {
 
 	/**
 	 * The group name for this group of functions.
@@ -75,19 +73,13 @@ final class CurrentTimeTimestampSniff extends AbstractFunctionParameterSniff {
 		/*
 		 * Check whether the first parameter is a timestamp format.
 		 */
-		$type_param = PassedParameters::getParameterFromStack( $parameters, 1, 'type' );
-		if ( false === $type_param ) {
-			// Type parameter not found. Bow out.
-			return;
-		}
-
-		for ( $i = $type_param['start']; $i <= $type_param['end']; $i++ ) {
+		for ( $i = $parameters[1]['start']; $i <= $parameters[1]['end']; $i++ ) {
 			if ( isset( Tokens::$emptyTokens[ $this->tokens[ $i ]['code'] ] ) ) {
 				continue;
 			}
 
 			if ( isset( Tokens::$textStringTokens[ $this->tokens[ $i ]['code'] ] ) ) {
-				$content_first = trim( TextStrings::stripQuotes( $this->tokens[ $i ]['content'] ) );
+				$content_first = trim( $this->strip_quotes( $this->tokens[ $i ]['content'] ) );
 				if ( 'U' !== $content_first && 'timestamp' !== $content_first ) {
 					// Most likely valid use of current_time().
 					return;
@@ -112,12 +104,24 @@ final class CurrentTimeTimestampSniff extends AbstractFunctionParameterSniff {
 		/*
 		 * Check whether the second parameter, $gmt, is a set to `true` or `1`.
 		 */
-		$gmt_param = PassedParameters::getParameterFromStack( $parameters, 2, 'gmt' );
-		if ( is_array( $gmt_param ) ) {
+		if ( isset( $parameters[2] ) ) {
 			$content_second = '';
-			if ( 'true' === $gmt_param['clean'] || '1' === $gmt_param['clean'] ) {
-				$content_second = $gmt_param['clean'];
+			if ( 'true' === $parameters[2]['raw'] || '1' === $parameters[2]['raw'] ) {
+				$content_second = $parameters[2]['raw'];
 				$gmt_true       = true;
+			} else {
+				// Do a more extensive parameter check.
+				for ( $i = $parameters[2]['start']; $i <= $parameters[2]['end']; $i++ ) {
+					if ( isset( Tokens::$emptyTokens[ $this->tokens[ $i ]['code'] ] ) ) {
+						continue;
+					}
+
+					$content_second .= $this->tokens[ $i ]['content'];
+				}
+
+				if ( 'true' === $content_second || '1' === $content_second ) {
+					$gmt_true = true;
+				}
 			}
 		}
 
@@ -150,6 +154,7 @@ final class CurrentTimeTimestampSniff extends AbstractFunctionParameterSniff {
 		if ( false !== $has_comment ) {
 			// If there are comments, we don't auto-fix as it would remove those comments.
 			$this->phpcsFile->addError( $error, $stackPtr, $error_code, array( $code_snippet ) );
+
 			return;
 		}
 
@@ -165,4 +170,5 @@ final class CurrentTimeTimestampSniff extends AbstractFunctionParameterSniff {
 			$this->phpcsFile->fixer->endChangeset();
 		}
 	}
+
 }

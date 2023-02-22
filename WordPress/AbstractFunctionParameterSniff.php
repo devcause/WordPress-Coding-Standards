@@ -9,7 +9,6 @@
 
 namespace WordPressCS\WordPress;
 
-use PHPCSUtils\Utils\PassedParameters;
 use WordPressCS\WordPress\AbstractFunctionRestrictionsSniff;
 
 /**
@@ -69,7 +68,7 @@ abstract class AbstractFunctionParameterSniff extends AbstractFunctionRestrictio
 	 */
 	public function process_matched_token( $stackPtr, $group_name, $matched_content ) {
 
-		$parameters = PassedParameters::getParameters( $this->phpcsFile, $stackPtr );
+		$parameters = $this->get_function_call_parameters( $stackPtr );
 
 		if ( empty( $parameters ) ) {
 			return $this->process_no_parameters( $stackPtr, $group_name, $matched_content );
@@ -106,5 +105,8 @@ abstract class AbstractFunctionParameterSniff extends AbstractFunctionRestrictio
 	 * @return int|void Integer stack pointer to skip forward or void to continue
 	 *                  normal file processing.
 	 */
-	public function process_no_parameters( $stackPtr, $group_name, $matched_content ) {}
+	public function process_no_parameters( $stackPtr, $group_name, $matched_content ) {
+		return;
+	}
+
 }

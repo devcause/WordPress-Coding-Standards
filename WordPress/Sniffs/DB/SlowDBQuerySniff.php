@@ -19,10 +19,13 @@ use WordPressCS\WordPress\AbstractArrayAssignmentRestrictionsSniff;
  * @package WPCS\WordPressCodingStandards
  *
  * @since   0.3.0
+ * @since   0.12.0 Introduced new and more intuitively named 'slow query' whitelist
+ *                 comment, replacing the 'tax_query' whitelist comment which is now
+ *                 deprecated.
  * @since   0.13.0 Class name changed: this class is now namespaced.
  * @since   1.0.0  This sniff has been moved from the `VIP` category to the `DB` category.
  */
-final class SlowDBQuerySniff extends AbstractArrayAssignmentRestrictionsSniff {
+class SlowDBQuerySniff extends AbstractArrayAssignmentRestrictionsSniff {
 
 	/**
 	 * Groups of variables to restrict.
@@ -42,6 +45,27 @@ final class SlowDBQuerySniff extends AbstractArrayAssignmentRestrictionsSniff {
 				),
 			),
 		);
+	}
+
+	/**
+	 * Processes this test, when one of its tokens is encountered.
+	 *
+	 * @since 0.10.0
+	 *
+	 * @param int $stackPtr The position of the current token in the stack.
+	 *
+	 * @return int|void Integer stack pointer to skip forward or void to continue
+	 *                  normal file processing.
+	 */
+	public function process_token( $stackPtr ) {
+
+		if ( $this->has_whitelist_comment( 'slow query', $stackPtr ) ) {
+			return;
+		} elseif ( $this->has_whitelist_comment( 'tax_query', $stackPtr ) ) {
+			return;
+		}
+
+		return parent::process_token( $stackPtr );
 	}
 
 	/**

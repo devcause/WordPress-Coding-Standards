@@ -9,11 +9,8 @@
 
 namespace WordPressCS\WordPress\Sniffs\Arrays;
 
-use PHP_CodeSniffer\Util\Tokens;
-use PHPCSUtils\Tokens\Collections;
-use PHPCSUtils\Utils\Arrays;
-use PHPCSUtils\Utils\PassedParameters;
 use WordPressCS\WordPress\Sniff;
+use PHP_CodeSniffer\Util\Tokens;
 
 /**
  * Enforces a comma after each array item and the spacing around it.
@@ -25,14 +22,14 @@ use WordPressCS\WordPress\Sniff;
  * - There should be exactly one space between the comma and the start of the
  *   next array item for single-line items.
  *
- * @link    https://developer.wordpress.org/coding-standards/wordpress-coding-standards/php/#indentation
+ * @link    https://make.wordpress.org/core/handbook/best-practices/coding-standards/php/#indentation
  *
  * @package WPCS\WordPressCodingStandards
  *
  * @since   0.12.0
  * @since   0.13.0 Class name changed: this class is now namespaced.
  */
-final class CommaAfterArrayItemSniff extends Sniff {
+class CommaAfterArrayItemSniff extends Sniff {
 
 	/**
 	 * Returns an array of tokens this test wants to listen for.
@@ -40,7 +37,10 @@ final class CommaAfterArrayItemSniff extends Sniff {
 	 * @return array
 	 */
 	public function register() {
-		return Collections::arrayOpenTokensBC();
+		return array(
+			\T_ARRAY,
+			\T_OPEN_SHORT_ARRAY,
+		);
 	}
 
 	/**
@@ -52,17 +52,17 @@ final class CommaAfterArrayItemSniff extends Sniff {
 	 */
 	public function process_token( $stackPtr ) {
 
-		if ( isset( Collections::shortArrayListOpenTokensBC()[ $this->tokens[ $stackPtr ]['code'] ] )
-			&& Arrays::isShortArray( $this->phpcsFile, $stackPtr ) === false
+		if ( \T_OPEN_SHORT_ARRAY === $this->tokens[ $stackPtr ]['code']
+			&& $this->is_short_list( $stackPtr )
 		) {
-			// Short list or real square brackets, not short array.
+			// Short list, not short array.
 			return;
 		}
 
 		/*
 		 * Determine the array opener & closer.
 		 */
-		$array_open_close = Arrays::getOpenClose( $this->phpcsFile, $stackPtr );
+		$array_open_close = $this->find_array_open_close( $stackPtr );
 		if ( false === $array_open_close ) {
 			// Array open/close could not be determined.
 			return;
@@ -82,7 +82,7 @@ final class CommaAfterArrayItemSniff extends Sniff {
 			$single_line = false;
 		}
 
-		$array_items = PassedParameters::getParameters( $this->phpcsFile, $stackPtr );
+		$array_items = $this->get_function_call_parameters( $stackPtr );
 		if ( empty( $array_items ) ) {
 			// Strange, no array items found.
 			return;
@@ -186,7 +186,7 @@ final class CommaAfterArrayItemSniff extends Sniff {
 
 					if ( \T_WHITESPACE === $this->tokens[ $i ]['code'] ) {
 						if ( $this->tokens[ $i ]['content'] === $this->phpcsFile->eolChar ) {
-							++$newlines;
+							$newlines++;
 						} else {
 							$spaces += $this->tokens[ $i ]['length'];
 						}
